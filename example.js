@@ -1,11 +1,3 @@
-/**
- * Welcome to the Looker Custom Visualization Builder! Please refer to the following resources
- * to help you write your visualization:
- *  - API Documentation - https://github.com/looker/custom_visualizations_v2/blob/master/docs/api_reference.md
- *  - Example Visualizations - https://github.com/looker/custom_visualizations_v2/tree/master/src/examples
- *  - How to use the CVB - https://developers.looker.com/marketplace/tutorials/about-custom-viz-builder
- **/
-
 const visObject = {
  /**
   * Configuration options for your visualization. In Looker, these show up in the vis editor
@@ -37,63 +29,74 @@ const visObject = {
   * the data and should update the visualization with the new data.
   **/
 	updateAsync: function(data, element, config, queryResponse, details, doneRendering){
-    // set the dimensions and margins of the graph
-    var margin = {top: 20, right: 20, bottom: 30, left: 40},
-        width = 960 - margin.left - margin.right,
-        height = 500 - margin.top - margin.bottom;
 
-    // set the ranges
-    var x = d3.scaleBand()
-              .range([0, width])
-              .padding(0.1);
-    var y = d3.scaleLinear()
-              .range([height, 0]);
-
-    // append the svg object to the body of the page
-    // append a 'group' element to 'svg'
-    // moves the 'group' element to the top left margin
     element.innerHTML = ""
-    var svg = d3.select("#vis").append("svg")
-        .attr("width", width + margin.left + margin.right)
-        .attr("height", height + margin.top + margin.bottom)
-      .append("g")
-        .attr("transform",
-              "translate(" + margin.left + "," + margin.top + ")");
 
-    formattedData = []
+    var margin = {top: 100, right: 20, bottom: 20, left: 20},
+    width = 600 - margin.left - margin.right,
+    height = 270 - margin.top - margin.bottom;
 
-    // format the data
-    data.forEach(function(d) {
-      formattedData.push({
-      	count: d["game.count"]["value"],
-        friendly_class: d["game.friendly_class"]["value"],
-        opponent_class: d["game.opponent_class"]["value"]
-      });
-    });
+    // The reference point is the upper left corner of the
+    // useable browser window, and it is 0,0
 
-    // Scale the range of the data in the domains
-    x.domain(formattedData.map(function(d) { return d.friendly_class; }));
-    y.domain([0, d3.max(formattedData, function(d) { return d.count; })]);
+    // Make up some simple data
 
-    // append the rectangles for the bar chart
-    svg.selectAll(".bar")
-      .data(formattedData)
-      .enter().append("rect")
-      .attr("class", "bar")
-      .attr("style", "fill: #6c43e0;")
-      .attr("x", function(d) { return x(d.friendly_class); })
-      .attr("width", x.bandwidth())
-      .attr("y", function(d) { return y(d.count); })
-      .attr("height", function(d) { return height - y(d.count); });
+    var xdata = d3.range(0, 20);
+    var ydata = [1, 4, 5, 9, 10, 14, 15, 15, 11, 10, 5, 5, 4, 8, 7, 5, 5, 5, 8, 10];
 
-    // add the x Axis
-    svg.append("g")
-      .attr("transform", "translate(0," + height + ")")
-      .call(d3.axisBottom(x));
+    // d3.js functions want x,y data in a not-so-intuitive structure
+    // Assemble the needed array structure (Thanks to FernofTheAndes on SO)
+    // The new structure is technically an array of objects.
+    // Each object has the structure {property: value}
+    // In this case, each object is one x, y pair
 
-    // add the y Axis
-    svg.append("g")
-      .call(d3.axisLeft(y));
+    var xy = []; // start empty, add each element one at a time
+    for(var i = 0; i < xdata.length; i++ ) {
+       xy.push({x: xdata[i], y: ydata[i]});
+    }
+
+    console.log("xy is:", xy); // shows the data structure
+
+    // The domain of the scales (next) refers to range of input values,
+    // and range is the output range. In this example, the output
+    // values are the actual pixel positions on the screen.  When combined
+    // with the way the line is silently positioned, this is a common
+    // strategy.  d3simpleScatter2.html shows a different and probably
+    // easier to conceptualize approach.
+
+    var xscl = d3.scaleLinear()
+        .domain(d3.extent(xy, function(d) {return d.x;})) //use just the x part
+        .range([margin.left, width + margin.left])
+
+    var yscl = d3.scaleLinear()
+        .domain(d3.extent(xy, function(d) {return d.y;})) // use just the y part
+        .range([height + margin.top, margin.top])
+
+    var myline = d3.line()
+      .x(function(d) { return xscl(d.x);}) // apply the x scale to the x data
+      .y(function(d) { return yscl(d.y);}) // apply the y scale to the y data
+
+    console.log("line(xy) is:", myline(xy)); // shows the exact pen moves
+
+    var svg = d3.select("body")
+        .append("svg")
+        .attr("width",window.innerWidth)
+        .attr("height",window.innerHeight)
+
+    svg.append('rect') // outline for reference
+    	.attr({x: margin.left, y: margin.top,
+    	       width: width,
+    	       height: height,
+    	       stroke: 'black',
+    	       'stroke-width': 0.5,
+    	       fill:'white'}); // attributes in JS list format
+
+    svg.append("path")
+        .attr("class", "line") // attributes given one at a time
+        .attr("d", myline(xy)) // use the value of myline(xy) as the data, 'd'
+        .style("fill", "none")
+        .style("stroke", "red")
+        .style("stroke-width", 2);
 
 		doneRendering()
 	}
